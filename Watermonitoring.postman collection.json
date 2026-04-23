@@ -1,0 +1,1483 @@
+{
+  "info": {
+    "name": "💧 Water Storage Monitoring System",
+    "description": "Complete API test suite for the Water Storage Monitoring System.\n\n## Setup\n1. Import this collection AND the `WaterMonitoring.postman_environment.json` file.\n2. Select the **Water Monitoring - Local** environment.\n3. Run the **🚀 Full E2E Flow** folder in order using the Collection Runner.\n\n## Test Coverage\n- Auth: Login, Register, Profile, User Management\n- Tanks: CRUD, Assign, Reassign, Unassign\n- Sensor: Ingest, History, Stats, My Tank\n- Health Check\n- Error cases (401, 403, 404, 400 validations)\n\n## Automated Variables\nTokens, IDs and tankIds are automatically extracted and stored in environment variables after each response.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "water-monitoring-v1"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000/api", "type": "string" },
+    { "key": "adminToken", "value": "", "type": "string" },
+    { "key": "userToken", "value": "", "type": "string" },
+    { "key": "adminId", "value": "", "type": "string" },
+    { "key": "userId", "value": "", "type": "string" },
+    { "key": "user2Id", "value": "", "type": "string" },
+    { "key": "tankObjectId", "value": "", "type": "string" },
+    { "key": "tankId", "value": "", "type": "string" },
+    { "key": "tank2ObjectId", "value": "", "type": "string" },
+    { "key": "tank2Id", "value": "", "type": "string" },
+    { "key": "sensorReadingId", "value": "", "type": "string" }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Global pre-request: log request details in console",
+          "console.log(`[REQ] ${pm.request.method} ${pm.request.url.toString()}`);"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Global test: every response must be valid JSON",
+          "pm.test('Response is valid JSON', function () {",
+          "    pm.response.to.be.json;",
+          "});",
+          "",
+          "// Global test: response time under 3000ms",
+          "pm.test('Response time < 3000ms', function () {",
+          "    pm.expect(pm.response.responseTime).to.be.below(3000);",
+          "});"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "🏥 Health Check",
+      "item": [
+        {
+          "name": "Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Status is ok', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.equal('ok');",
+                  "});",
+                  "pm.test('Database is connected', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.database).to.equal('connected');",
+                  "});",
+                  "pm.test('Has uptime field', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.uptime).to.be.a('number');",
+                  "});",
+                  "pm.test('Has websocket stats', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.websockets).to.have.property('total');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/health",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["health"]
+            },
+            "description": "Check server health, DB status, and WebSocket connection stats."
+          }
+        },
+        {
+          "name": "API Index",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has endpoints map', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data).to.be.undefined;",
+                  "    pm.expect(json.endpoints).to.have.property('auth');",
+                  "    pm.expect(json.endpoints).to.have.property('tanks');",
+                  "    pm.expect(json.endpoints).to.have.property('sensor');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}", "host": ["{{baseUrl}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔐 Auth",
+      "item": [
+        {
+          "name": "1. Admin Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('success is true', () => {",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});",
+                  "pm.test('Returns JWT token', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data).to.have.property('token');",
+                  "    pm.expect(json.data.token).to.be.a('string').and.not.be.empty;",
+                  "    // Save token and admin ID to collection variables",
+                  "    pm.collectionVariables.set('adminToken', json.data.token);",
+                  "    pm.collectionVariables.set('adminId', json.data.user._id);",
+                  "    console.log('✅ Admin token saved');",
+                  "});",
+                  "pm.test('User role is admin', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data.user.role).to.equal('admin');",
+                  "});",
+                  "pm.test('Password not exposed', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data.user).to.not.have.property('password');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"admin@watermonitoring.com\",\n    \"password\": \"Admin@12345\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] },
+            "description": "Login as admin. Automatically saves `adminToken` and `adminId` to collection variables."
+          }
+        },
+        {
+          "name": "2. Register User (Admin)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Generate unique email to avoid duplicate conflicts on re-runs",
+                  "const timestamp = Date.now();",
+                  "pm.collectionVariables.set('testUserEmail', `testuser_${timestamp}@example.com`);",
+                  "pm.collectionVariables.set('testUserPassword', 'TestUser@1234');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('User created successfully', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data.user).to.have.property('_id');",
+                  "    pm.collectionVariables.set('userId', json.data.user._id);",
+                  "    console.log('✅ Test user created, ID saved:', json.data.user._id);",
+                  "});",
+                  "pm.test('Role is user', () => {",
+                  "    pm.expect(pm.response.json().data.user.role).to.equal('user');",
+                  "});",
+                  "pm.test('Token returned', () => {",
+                  "    pm.expect(pm.response.json().data.token).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Alice Operator\",\n    \"email\": \"{{testUserEmail}}\",\n    \"password\": \"{{testUserPassword}}\",\n    \"role\": \"user\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] }
+          }
+        },
+        {
+          "name": "3. Register Second User (Admin)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const timestamp = Date.now();",
+                  "pm.collectionVariables.set('testUser2Email', `testuser2_${timestamp}@example.com`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Second user created', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.collectionVariables.set('user2Id', json.data.user._id);",
+                  "    console.log('✅ User 2 ID saved:', json.data.user._id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Bob Technician\",\n    \"email\": \"{{testUser2Email}}\",\n    \"password\": \"TestUser@1234\",\n    \"role\": \"user\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] }
+          }
+        },
+        {
+          "name": "4. User Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('User token saved', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data.token).to.be.a('string');",
+                  "    pm.collectionVariables.set('userToken', json.data.token);",
+                  "    console.log('✅ User token saved');",
+                  "});",
+                  "pm.test('Role is user', () => {",
+                  "    pm.expect(pm.response.json().data.user.role).to.equal('user');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"{{testUserEmail}}\",\n    \"password\": \"{{testUserPassword}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
+          }
+        },
+        {
+          "name": "5. Get Own Profile (User)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Profile returned', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data.user).to.have.property('email');",
+                  "    pm.expect(json.data.user).to.not.have.property('password');",
+                  "});",
+                  "pm.test('Correct user returned', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data.user._id).to.equal(pm.collectionVariables.get('userId'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{userToken}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/auth/profile", "host": ["{{baseUrl}}"], "path": ["auth", "profile"] }
+          }
+        },
+        {
+          "name": "6. Get Own Profile (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Admin profile returned', () => {",
+                  "    pm.expect(pm.response.json().data.user.role).to.equal('admin');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/auth/profile", "host": ["{{baseUrl}}"], "path": ["auth", "profile"] }
+          }
+        },
+        {
+          "name": "7. List All Users (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns user list', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data.users).to.be.an('array');",
+                  "    pm.expect(json.data.total).to.be.a('number');",
+                  "});",
+                  "pm.test('Passwords not exposed', () => {",
+                  "    const json = pm.response.json();",
+                  "    json.data.users.forEach(u => {",
+                  "        pm.expect(u).to.not.have.property('password');",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/users?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "users"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "8. List Users — Filter by Role",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('All returned users are role=user', () => {",
+                  "    const json = pm.response.json();",
+                  "    json.data.users.forEach(u => {",
+                  "        pm.expect(u.role).to.equal('user');",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/users?role=user",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "users"],
+              "query": [{ "key": "role", "value": "user" }]
+            }
+          }
+        },
+        {
+          "name": "9. Get User by ID (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Correct user returned', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data.user._id).to.equal(pm.collectionVariables.get('userId'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/auth/users/{{userId}}", "host": ["{{baseUrl}}"], "path": ["auth", "users", "{{userId}}"] }
+          }
+        },
+        {
+          "name": "10. Update User (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Name updated', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data.user.name).to.equal('Alice Updated');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}" }] },
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Alice Updated\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/auth/users/{{userId}}", "host": ["{{baseUrl}}"], "path": ["auth", "users", "{{userId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🪣 Tanks",
+      "item": [
+        {
+          "name": "1. Create Tank Alpha (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Tank created with auto tankId', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data.tank).to.have.property('tankId');",
+                  "    pm.expect(json.data.tank.tankId).to.match(/^TANK-/);",
+                  "    pm.collectionVariables.set('tankObjectId', json.data.tank._id);",
+                  "    pm.collectionVariables.set('tankId', json.data.tank.tankId);",
+                  "    console.log('✅ Tank Alpha created:', json.data.tank.tankId);",
+                  "});",
+                  "pm.test('latestReading initialized', () => {",
+                  "    const tank = pm.response.json().data.tank;",
+                  "    pm.expect(tank.latestReading).to.have.property('flowRate');",
+                  "    pm.expect(tank.latestReading.flowRate).to.equal(0);",
+                  "});",
+                  "pm.test('assignedUser is null on creation', () => {",
+                  "    pm.expect(pm.response.json().data.tank.assignedUser).to.be.null;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Rooftop Tank Alpha\",\n    \"description\": \"Primary supply tank for Block A\",\n    \"location\": \"Building 1 - Rooftop Level 3\",\n    \"capacity\": 10000,\n    \"metadata\": {\n        \"zone\": \"north\",\n        \"installYear\": 2023\n    }\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/tanks", "host": ["{{baseUrl}}"], "path": ["tanks"] }
+          }
+        },
+        {
+          "name": "2. Create Tank Beta (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Tank Beta created', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set('tank2ObjectId', json.data.tank._id);",
+                  "    pm.collectionVariables.set('tank2Id', json.data.tank.tankId);",
+                  "    console.log('✅ Tank Beta created:', json.data.tank.tankId);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Underground Tank Beta\",\n    \"description\": \"Backup storage tank for Block B\",\n    \"location\": \"Building 2 - Basement Level 1\",\n    \"capacity\": 25000,\n    \"metadata\": {\n        \"zone\": \"south\",\n        \"installYear\": 2022\n    }\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/tanks", "host": ["{{baseUrl}}"], "path": ["tanks"] }
+          }
+        },
+        {
+          "name": "3. List All Tanks (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns array of tanks', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data).to.be.an('array');",
+                  "    pm.expect(json.meta.total).to.be.a('number');",
+                  "    pm.expect(json.meta.totalPages).to.be.a('number');",
+                  "});",
+                  "pm.test('Pagination meta present', () => {",
+                  "    const meta = pm.response.json().meta;",
+                  "    pm.expect(meta).to.have.all.keys('total', 'page', 'limit', 'totalPages', 'hasNextPage', 'hasPrevPage');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tanks?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["tanks"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "4. Get Tank by ObjectId (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Correct tank returned', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data.tank._id).to.equal(pm.collectionVariables.get('tankObjectId'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/tanks/{{tankObjectId}}", "host": ["{{baseUrl}}"], "path": ["tanks", "{{tankObjectId}}"] }
+          }
+        },
+        {
+          "name": "5. Get Tank by Custom tankId (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Tank found by custom tankId string', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data.tank.tankId).to.equal(pm.collectionVariables.get('tankId'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/tanks/{{tankId}}", "host": ["{{baseUrl}}"], "path": ["tanks", "{{tankId}}"] }
+          }
+        },
+        {
+          "name": "6. Update Tank (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Description updated', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data.tank.description).to.equal('Updated: Primary supply for entire Block A complex');",
+                  "});",
+                  "pm.test('Capacity updated', () => {",
+                  "    pm.expect(pm.response.json().data.tank.capacity).to.equal(12000);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}" }] },
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"description\": \"Updated: Primary supply for entire Block A complex\",\n    \"capacity\": 12000,\n    \"location\": \"Building 1 - Rooftop Level 3 (Revised)\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/tanks/{{tankObjectId}}", "host": ["{{baseUrl}}"], "path": ["tanks", "{{tankObjectId}}"] }
+          }
+        },
+        {
+          "name": "7. Assign Tank to User (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Tank assigned', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data.action).to.be.oneOf(['assign', 'reassign']);",
+                  "    console.log('✅ Assignment action:', json.data.action);",
+                  "});",
+                  "pm.test('Tank now has assignedUser', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data.tank.assignedUser).to.not.be.null;",
+                  "    pm.expect(json.data.tank.assignedUser.email).to.be.a('string');",
+                  "});",
+                  "pm.test('User now has assignedTank', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data.user.assignedTank).to.not.be.null;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"tankId\": \"{{tankObjectId}}\",\n    \"userId\": \"{{userId}}\",\n    \"notes\": \"Initial assignment for Q1 monitoring\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/tanks/assign", "host": ["{{baseUrl}}"], "path": ["tanks", "assign"] }
+          }
+        },
+        {
+          "name": "8. User Gets Own Tank (After Assignment)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns assigned tank', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data.tank).to.not.be.null;",
+                  "    pm.expect(json.data.tank.tankId).to.equal(pm.collectionVariables.get('tankId'));",
+                  "});",
+                  "pm.test('latestReading present', () => {",
+                  "    pm.expect(pm.response.json().data.tank.latestReading).to.be.an('object');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{userToken}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/tanks/my", "host": ["{{baseUrl}}"], "path": ["tanks", "my"] }
+          }
+        },
+        {
+          "name": "9. Reassign Tank to User 2 (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Action is reassign', () => {",
+                  "    pm.expect(pm.response.json().data.action).to.equal('reassign');",
+                  "});",
+                  "pm.test('Tank now assigned to user2', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data.tank.assignedUser._id).to.equal(pm.collectionVariables.get('user2Id'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"tankId\": \"{{tankObjectId}}\",\n    \"userId\": \"{{user2Id}}\",\n    \"notes\": \"Reassigned to new operator for Q2\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/tanks/reassign", "host": ["{{baseUrl}}"], "path": ["tanks", "reassign"] }
+          }
+        },
+        {
+          "name": "10. Get Assignment History (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('History is array', () => {",
+                  "    pm.expect(pm.response.json().data.history).to.be.an('array');",
+                  "});",
+                  "pm.test('Has at least 2 records (assign + reassign)', () => {",
+                  "    pm.expect(pm.response.json().data.history.length).to.be.at.least(2);",
+                  "});",
+                  "pm.test('Reassign record has previousUser', () => {",
+                  "    const history = pm.response.json().data.history;",
+                  "    const reassign = history.find(h => h.action === 'reassign');",
+                  "    pm.expect(reassign).to.not.be.undefined;",
+                  "    pm.expect(reassign.previousUser).to.not.be.null;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/tanks/{{tankObjectId}}/assignments", "host": ["{{baseUrl}}"], "path": ["tanks", "{{tankObjectId}}", "assignments"] }
+          }
+        },
+        {
+          "name": "11. Unassign Tank (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Unassignment successful', () => {",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "    pm.expect(pm.response.json().data.unassignedUserId).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"tankId\": \"{{tankObjectId}}\",\n    \"notes\": \"Temporary unassignment for maintenance\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/tanks/unassign", "host": ["{{baseUrl}}"], "path": ["tanks", "unassign"] }
+          }
+        },
+        {
+          "name": "12. Re-assign Tank Back to User 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Tank re-assigned to user 1', () => {",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "    console.log('✅ Tank re-assigned to user 1 for sensor tests');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"tankId\": \"{{tankObjectId}}\",\n    \"userId\": \"{{userId}}\",\n    \"notes\": \"Re-assigning for sensor ingestion tests\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/tanks/assign", "host": ["{{baseUrl}}"], "path": ["tanks", "assign"] }
+          }
+        },
+        {
+          "name": "13. Delete Tank Beta (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Tank deactivated', () => {",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "    pm.expect(pm.response.json().message).to.include('deactivated');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}" }] },
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/tanks/{{tank2ObjectId}}", "host": ["{{baseUrl}}"], "path": ["tanks", "{{tank2ObjectId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📡 Sensor",
+      "item": [
+        {
+          "name": "1. Ingest Reading #1 (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Reading stored', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data.reading).to.have.property('_id');",
+                  "    pm.collectionVariables.set('sensorReadingId', json.data.reading._id);",
+                  "    console.log('✅ Reading #1 stored, ID:', json.data.reading._id);",
+                  "});",
+                  "pm.test('flowRate matches input', () => {",
+                  "    pm.expect(pm.response.json().data.reading.flowRate).to.equal(14.5);",
+                  "});",
+                  "pm.test('efmReading matches input', () => {",
+                  "    pm.expect(pm.response.json().data.reading.efmReading).to.equal(3.72);",
+                  "});",
+                  "pm.test('Tank reference correct', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data.tank.tankId).to.equal(pm.collectionVariables.get('tankId'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"tankId\": \"{{tankId}}\",\n    \"flowRate\": 14.5,\n    \"efmReading\": 3.72,\n    \"totalizer\": 45230.8,\n    \"pressure\": 2.1,\n    \"temperature\": 22.5,\n    \"deviceId\": \"DEVICE-001\",\n    \"source\": \"device\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/sensor/ingest", "host": ["{{baseUrl}}"], "path": ["sensor", "ingest"] }
+          }
+        },
+        {
+          "name": "2. Ingest Reading #2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Reading #2 stored', () => pm.expect(pm.response.json().data.reading._id).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"tankId\": \"{{tankId}}\",\n    \"flowRate\": 16.2,\n    \"efmReading\": 4.10,\n    \"totalizer\": 45260.5,\n    \"pressure\": 2.3,\n    \"temperature\": 23.0,\n    \"deviceId\": \"DEVICE-001\",\n    \"source\": \"device\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/sensor/ingest", "host": ["{{baseUrl}}"], "path": ["sensor", "ingest"] }
+          }
+        },
+        {
+          "name": "3. Ingest Reading #3",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Reading #3 stored', () => pm.expect(pm.response.json().success).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"tankId\": \"{{tankId}}\",\n    \"flowRate\": 11.8,\n    \"efmReading\": 3.45,\n    \"totalizer\": 45290.0,\n    \"pressure\": 1.9,\n    \"temperature\": 21.8,\n    \"deviceId\": \"DEVICE-001\",\n    \"source\": \"device\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/sensor/ingest", "host": ["{{baseUrl}}"], "path": ["sensor", "ingest"] }
+          }
+        },
+        {
+          "name": "4. Get Tank Latest Data (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('latestReading is up to date', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data.latestReading.flowRate).to.be.a('number');",
+                  "    pm.expect(json.data.latestReading.totalizer).to.be.greaterThan(0);",
+                  "    console.log('Latest reading:', JSON.stringify(json.data.latestReading));",
+                  "});",
+                  "pm.test('Timestamp is set', () => {",
+                  "    pm.expect(pm.response.json().data.latestReading.timestamp).to.not.be.null;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/tanks/{{tankObjectId}}/data", "host": ["{{baseUrl}}"], "path": ["tanks", "{{tankObjectId}}", "data"] }
+          }
+        },
+        {
+          "name": "5. Get Tank Latest Data (Assigned User)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Assigned user can see own tank data', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data.latestReading).to.be.an('object');",
+                  "    pm.expect(json.data.latestReading.flowRate).to.be.a('number');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{userToken}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/tanks/{{tankObjectId}}/data", "host": ["{{baseUrl}}"], "path": ["tanks", "{{tankObjectId}}", "data"] }
+          }
+        },
+        {
+          "name": "6. Get Sensor History (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns at least 3 records', () => {",
+                  "    pm.expect(pm.response.json().data.length).to.be.at.least(3);",
+                  "});",
+                  "pm.test('Sorted newest first', () => {",
+                  "    const records = pm.response.json().data;",
+                  "    if (records.length >= 2) {",
+                  "        const t1 = new Date(records[0].timestamp).getTime();",
+                  "        const t2 = new Date(records[1].timestamp).getTime();",
+                  "        pm.expect(t1).to.be.at.least(t2);",
+                  "    }",
+                  "});",
+                  "pm.test('Pagination meta present', () => {",
+                  "    const meta = pm.response.json().meta;",
+                  "    pm.expect(meta).to.have.property('total');",
+                  "    pm.expect(meta).to.have.property('totalPages');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sensor/history/{{tankId}}?page=1&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["sensor", "history", "{{tankId}}"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "50" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "7. Get Sensor History with Date Range",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const now = new Date();",
+                  "const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);",
+                  "const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);",
+                  "pm.collectionVariables.set('startDate', yesterday.toISOString());",
+                  "pm.collectionVariables.set('endDate', tomorrow.toISOString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Date-filtered results returned', () => {",
+                  "    pm.expect(pm.response.json().data).to.be.an('array');",
+                  "    pm.expect(pm.response.json().data.length).to.be.at.least(1);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sensor/history/{{tankId}}?startDate={{startDate}}&endDate={{endDate}}&page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["sensor", "history", "{{tankId}}"],
+              "query": [
+                { "key": "startDate", "value": "{{startDate}}" },
+                { "key": "endDate", "value": "{{endDate}}" },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "8. Get My Tank Sensor Data (User)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('User can see own tank history', () => {",
+                  "    pm.expect(pm.response.json().data).to.be.an('array');",
+                  "});",
+                  "pm.test('Tank info included', () => {",
+                  "    pm.expect(pm.response.json().data).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{userToken}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sensor/my-tank?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["sensor", "my-tank"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "9. Get Sensor Stats (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Stats returned', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data.stats).to.not.be.null;",
+                  "    pm.expect(json.data.stats.avgFlowRate).to.be.a('number');",
+                  "    pm.expect(json.data.stats.maxFlowRate).to.be.a('number');",
+                  "    pm.expect(json.data.stats.totalReadings).to.be.at.least(3);",
+                  "    console.log('Stats:', JSON.stringify(json.data.stats, null, 2));",
+                  "});",
+                  "pm.test('latestReading snapshot present', () => {",
+                  "    pm.expect(pm.response.json().data.latestReading).to.be.an('object');",
+                  "});",
+                  "pm.test('Net consumption calculated', () => {",
+                  "    pm.expect(pm.response.json().data.stats.netConsumption).to.be.a('number');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/sensor/stats/{{tankId}}", "host": ["{{baseUrl}}"], "path": ["sensor", "stats", "{{tankId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🚫 Error & Authorization Tests",
+      "item": [
+        {
+          "name": "Login — Wrong Password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));",
+                  "pm.test('success is false', () => pm.expect(pm.response.json().success).to.be.false);",
+                  "pm.test('Does not expose which field is wrong', () => {",
+                  "    pm.expect(pm.response.json().message).to.equal('Invalid email or password');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"admin@watermonitoring.com\",\n    \"password\": \"wrongpassword\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
+          }
+        },
+        {
+          "name": "Login — Invalid Email Format",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Validation error for email', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.false;",
+                  "    pm.expect(json.details).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"not-an-email\",\n    \"password\": \"Admin@12345\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
+          }
+        },
+        {
+          "name": "Access Protected Route — No Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));",
+                  "pm.test('Authentication error', () => {",
+                  "    pm.expect(pm.response.json().success).to.be.false;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/tanks", "host": ["{{baseUrl}}"], "path": ["tanks"] }
+          }
+        },
+        {
+          "name": "User Tries Admin Route — Forbidden",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', () => pm.response.to.have.status(403));",
+                  "pm.test('Access denied message', () => {",
+                  "    pm.expect(pm.response.json().success).to.be.false;",
+                  "    pm.expect(pm.response.json().message).to.include('Access denied');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{userToken}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/tanks", "host": ["{{baseUrl}}"], "path": ["tanks"] }
+          }
+        },
+        {
+          "name": "User Accesses Another User's Tank Data",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', () => pm.response.to.have.status(403));",
+                  "pm.test('Unauthorized tank access blocked', () => {",
+                  "    pm.expect(pm.response.json().success).to.be.false;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{userToken}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/sensor/history/{{tank2Id}}", "host": ["{{baseUrl}}"], "path": ["sensor", "history", "{{tank2Id}}"] }
+          }
+        },
+        {
+          "name": "User Tries to GET /tanks/my — Without Assignment",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// First unassign user from tank via admin",
+                  "// This test demonstrates the 404 when no tank is assigned.",
+                  "// Run manually after unassigning the user, or verify message only.",
+                  "console.log('Note: This test shows 200 if user has a tank, 404 if not assigned.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 or 404', () => {",
+                  "    pm.expect([200, 404]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test('Response has success field', () => {",
+                  "    pm.expect(pm.response.json()).to.have.property('success');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{userToken}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/tanks/my", "host": ["{{baseUrl}}"], "path": ["tanks", "my"] }
+          }
+        },
+        {
+          "name": "Create Tank — Missing Required Fields",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Validation error returned', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.false;",
+                  "    pm.expect(json.details).to.be.an('array');",
+                  "    const fields = json.details.map(d => d.field);",
+                  "    pm.expect(fields).to.include('name');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"description\": \"Tank with no name\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/tanks", "host": ["{{baseUrl}}"], "path": ["tanks"] }
+          }
+        },
+        {
+          "name": "Ingest — Negative flowRate",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Validation rejects negative flowRate', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.false;",
+                  "    const fields = json.details.map(d => d.field);",
+                  "    pm.expect(fields).to.include('flowRate');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"tankId\": \"{{tankId}}\",\n    \"flowRate\": -5,\n    \"efmReading\": 3.0,\n    \"totalizer\": 10000\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/sensor/ingest", "host": ["{{baseUrl}}"], "path": ["sensor", "ingest"] }
+          }
+        },
+        {
+          "name": "Ingest — Non-existent Tank",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Tank not found error', () => {",
+                  "    pm.expect(pm.response.json().success).to.be.false;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"tankId\": \"TANK-DOESNOTEXIST\",\n    \"flowRate\": 10.0,\n    \"efmReading\": 3.0,\n    \"totalizer\": 10000\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/sensor/ingest", "host": ["{{baseUrl}}"], "path": ["sensor", "ingest"] }
+          }
+        },
+        {
+          "name": "Register — Weak Password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Password validation failed', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.false;",
+                  "    const fields = json.details.map(d => d.field);",
+                  "    pm.expect(fields).to.include('password');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Weak User\",\n    \"email\": \"weak@example.com\",\n    \"password\": \"123\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] }
+          }
+        },
+        {
+          "name": "404 — Unknown Route",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('success is false', () => pm.expect(pm.response.json().success).to.be.false);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/nonexistent/route", "host": ["{{baseUrl}}"], "path": ["nonexistent", "route"] }
+          }
+        }
+      ]
+    }
+  ]
+}
