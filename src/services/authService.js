@@ -67,4 +67,79 @@ const getProfile = async (userId) => {
   return user;
 };
 
-module.exports = { login, register, getProfile };
+/**
+ * Generate a random 6-digit OTP.
+ */
+const generateOTP = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+/**
+ * Send password reset OTP to user's email.
+ */
+const forgotPassword = async (email) => {
+  const user = await User.findOne({ email, isActive: true });
+
+  // Always return success to prevent email enumeration
+  if (!user) {
+    return { message: 'If an account exists, an OTP will be sent to the email' };
+  }
+
+  const otp = generateOTP();
+  const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+  user.resetOTP = otp;
+  user.resetOTPExpires = otpExpires;
+  await user.save();
+
+  // In production, send email here
+  // For now, log OTP to console (remove in production!)
+  console.log(`🔐 OTP for ${email}: ${otp}`);
+
+  return { message: 'If an account exists, an OTP will be sent to the email' };
+};
+
+/**
+ * Reset password using OTP.
+ */
+const resetPassword = async (email, otp, newPassword) => {
+  const user = await User.findOne({ email, isActive: true })
+    .select('+resetOTP +resetOTPExpires');
+
+  if (!user) {
+    const err = new Error('Invalid email or password');
+    err.statusCode = 401;
+    throw err;
+  }
+
+  // Check if OTP exists
+  if (!user.resetOTP || !user.resetOTPExpires) {
+    const err = new Error('No OTP requested. Request password reset first.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  // Check if OTP is expired
+  if (new Date() > user.resetOTPExpires) {
+    const err = new Error('OTP expired. Please request a new OTP.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  // Verify OTP
+  if (user.resetOTP !== otp) {
+    const err = new Error('Invalid OTP');
+    err.statusCode = 401;
+    throw err;
+  }
+
+  // Update password
+  user.password = newPassword;
+  user.resetOTP = null;
+  user.resetOTPExpires = null;
+  await user.save();
+
+  return { message: 'Password reset successful' };
+};
+
+module.exports = { login, register, getProfile, forgotPassword, resetPassword };

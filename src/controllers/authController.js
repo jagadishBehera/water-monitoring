@@ -77,4 +77,30 @@ const updateUser = async (req, res, next) => {
   }
 };
 
-module.exports = { login, register, getProfile, listUsers, getUserById, updateUser };
+const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return require('../utils/response').error(res, 'Email is required', 400);
+    }
+    const result = await authService.forgotPassword(email);
+    return success(res, result, 'OTP sent if account exists');
+  } catch (err) {
+    next(err);
+  }
+};
+
+const resetPassword = async (req, res, next) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    if (!email || !otp || !newPassword) {
+      return require('../utils/response').error(res, 'Email, OTP, and newPassword are required', 400);
+    }
+    const result = await authService.resetPassword(email, otp, newPassword);
+    return success(res, result, 'Password reset successful');
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { login, register, getProfile, listUsers, getUserById, updateUser, forgotPassword, resetPassword };

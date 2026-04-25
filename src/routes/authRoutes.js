@@ -23,4 +23,10 @@ router.get('/users/:id', protect, restrictTo('admin'), ctrl.getUserById);
 // PATCH /auth/users/:id  (admin: update user)
 router.patch('/users/:id', protect, restrictTo('admin'), ctrl.updateUser);
 
+// POST /auth/forgot-password  → send OTP to email
+router.post('/forgot-password', ctrl.forgotPassword);
+
+// POST /auth/reset-password  → reset password with OTP
+router.post('/reset-password', ctrl.resetPassword);
+
 module.exports = router;
