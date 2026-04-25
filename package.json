@@ -8,7 +8,9 @@
     "dev": "nodemon server.js",
     "seed": "node src/utils/seedAdmin.js"
   },
-  "engines": { "node": ">=16.0.0" },
+  "engines": {
+    "node": ">=16.0.0"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -23,6 +25,7 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.5.0",
     "morgan": "^1.10.1",
+    "nodemailer": "^8.0.6",
     "socket.io": "^4.8.3",
     "uuid": "^14.0.0"
   },

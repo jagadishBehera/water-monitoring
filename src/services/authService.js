@@ -2,6 +2,7 @@
 
 const User = require('../models/User');
 const { signToken, buildPayload } = require('../utils/jwt');
+const { sendResetOTPEmail } = require('./emailService');
 
 /**
  * Authenticate a user by email + password.
@@ -92,9 +93,8 @@ const forgotPassword = async (email) => {
   user.resetOTPExpires = otpExpires;
   await user.save();
 
-  // In production, send email here
-  // For now, log OTP to console (remove in production!)
-  console.log(`🔐 OTP for ${email}: ${otp}`);
+  // Send OTP via email
+  await sendResetOTPEmail(email, otp);
 
   return { message: 'If an account exists, an OTP will be sent to the email' };
 };
