@@ -38,7 +38,18 @@ const getAllTanks = async ({ page = 1, limit = 20, isActive } = {}) => {
  * Get a single tank by its ObjectId or custom tankId string.
  */
 const getTankById = async (id, populate = true) => {
-  const query = Tank.findOne({ $or: [{ _id: id }, { tankId: id }], isActive: true });
+  // Check if id is a valid MongoDB ObjectId
+  const isObjectId = id.match(/^[0-9a-fA-F]{24}$/);
+  
+  const filter = { isActive: true };
+  if (isObjectId) {
+    filter._id = id;
+  } else {
+    // Case-insensitive search for tankId
+    filter.tankId = { $regex: new RegExp(`^${id}$`, 'i') };
+  }
+  
+  const query = Tank.findOne(filter);
   if (populate) query.populate('assignedUser', 'name email role');
   const tank = await query.lean();
 
@@ -58,8 +69,18 @@ const updateTank = async (id, updates) => {
   delete updates.tankId;
   delete updates.assignedUser;
 
+  // Check if id is a valid MongoDB ObjectId
+  const isObjectId = id.match(/^[0-9a-fA-F]{24}$/);
+  
+  const filter = {};
+  if (isObjectId) {
+    filter._id = id;
+  } else {
+    filter.tankId = { $regex: new RegExp(`^${id}$`, 'i') };
+  }
+
   const tank = await Tank.findOneAndUpdate(
-    { $or: [{ _id: id }, { tankId: id }] },
+    filter,
     { $set: updates },
     { new: true, runValidators: true }
   ).populate('assignedUser', 'name email role');
@@ -76,8 +97,18 @@ const updateTank = async (id, updates) => {
  * Soft-delete a tank.
  */
 const deleteTank = async (id) => {
+  // Check if id is a valid MongoDB ObjectId
+  const isObjectId = id.match(/^[0-9a-fA-F]{24}$/);
+  
+  const filter = {};
+  if (isObjectId) {
+    filter._id = id;
+  } else {
+    filter.tankId = { $regex: new RegExp(`^${id}$`, 'i') };
+  }
+
   const tank = await Tank.findOneAndUpdate(
-    { $or: [{ _id: id }, { tankId: id }] },
+    filter,
     { $set: { isActive: false, assignedUser: null } },
     { new: true }
   );
@@ -101,8 +132,16 @@ const deleteTank = async (id) => {
  * This is fully dynamic - no hardcoded logic.
  */
 const assignTank = async ({ tankId, userId, assignedBy, notes = '' }) => {
-  // Validate tank
-  const tank = await Tank.findOne({ $or: [{ _id: tankId }, { tankId }], isActive: true });
+  // Validate tank - check if tankId is ObjectId or custom tankId
+  const isObjectId = tankId.match(/^[0-9a-fA-F]{24}$/);
+  const tankFilter = { isActive: true };
+  if (isObjectId) {
+    tankFilter._id = tankId;
+  } else {
+    tankFilter.tankId = { $regex: new RegExp(`^${tankId}$`, 'i') };
+  }
+  
+  const tank = await Tank.findOne(tankFilter);
   if (!tank) {
     const err = new Error('Tank not found or inactive');
     err.statusCode = 404;
@@ -183,7 +222,16 @@ const assignTank = async ({ tankId, userId, assignedBy, notes = '' }) => {
  * Unassign a user from their tank.
  */
 const unassignTank = async ({ tankId, assignedBy, notes = '' }) => {
-  const tank = await Tank.findOne({ $or: [{ _id: tankId }, { tankId }] });
+  // Check if tankId is ObjectId or custom tankId
+  const isObjectId = tankId.match(/^[0-9a-fA-F]{24}$/);
+  const tankFilter = {};
+  if (isObjectId) {
+    tankFilter._id = tankId;
+  } else {
+    tankFilter.tankId = { $regex: new RegExp(`^${tankId}$`, 'i') };
+  }
+  
+  const tank = await Tank.findOne(tankFilter);
   if (!tank) {
     const err = new Error('Tank not found');
     err.statusCode = 404;
@@ -231,7 +279,16 @@ const unassignTank = async ({ tankId, assignedBy, notes = '' }) => {
  * Get assignment history for a tank.
  */
 const getAssignmentHistory = async (tankId) => {
-  const tank = await Tank.findOne({ $or: [{ _id: tankId }, { tankId }] }).lean();
+  // Check if tankId is ObjectId or custom tankId
+  const isObjectId = tankId.match(/^[0-9a-fA-F]{24}$/);
+  const tankFilter = {};
+  if (isObjectId) {
+    tankFilter._id = tankId;
+  } else {
+    tankFilter.tankId = { $regex: new RegExp(`^${tankId}$`, 'i') };
+  }
+  
+  const tank = await Tank.findOne(tankFilter).lean();
   if (!tank) {
     const err = new Error('Tank not found');
     err.statusCode = 404;
